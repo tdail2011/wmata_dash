@@ -1,4 +1,10 @@
 
+# WMATA_dash.py
+# This script creates a Dash application that displays the next train information
+# from the Washington Metropolitan Area Transit Authority (WMATA) API.
+# It allows users to select a station from a dropdown menu and fetches the next train
+# information for that station using the WMATA Next Train API.
+
 from dash import Dash, dcc, html, Input, Output, callback
 import requests
 import warnings
@@ -7,32 +13,40 @@ from dotenv import dotenv_values
 API_KEY = dotenv_values(".env")["WMATA_Personal_Primary"]
 
 
-
-
 def create_output_line(train):
+    """ Create a Dash HTML component for a single train's information.
+    Args:
+        train (dict): A dictionary containing train information.
+    Returns:
+        html.Div: A Dash HTML component containing the train information.
+    """
     return html.Div(children=f"{train['Car']} car train on the {train['Line']} line, " +
-                        f"heading to {train['DestinationName']}, Departing in {train['Min']} minutes. ")
+                        f"heading to {train['DestinationName']}, departing in {train['Min']} minutes. ")
 
 
 def create_output_group(response_json, group):
+    """ Create a Dash HTML component for a group of trains.
+    Args:
+        response_json (dict): The JSON response from the WMATA API containing train data.
+        group (str): The group identifier for the trains.
+    Returns:
+        html.Div: A Dash HTML component containing the grouped train information.
+    """
+    # Create a list of HTML components for each train in the group
     return html.Div(children=[*
                         [create_output_line(train) for train in response_json["Trains"] 
                          if train["Group"] == group], html.Br()])
 
-
+# Define the station codes for the dropdown menu
+# These codes are used to query the WMATA Next Train API for specific stations.
 station_codes = {
         "Ashburn": "N12",
         "L'Enfant Plaza Upper": "F03",
         "L'Enfant Plaza Lower": "D03",
         "Reston Town Center": "N07",
         "Suitland": "F10",
-    }
-url = "https://api.wmata.com/StationPrediction.svc/json/GetPrediction/"
-hdr = {
-        # Request headers
-        "Cache-Control": "no-cache",
-        "api_key": API_KEY,
-    }
+        }
+
 # Define external stylesheets for the Dash app
 external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css"]
@@ -56,13 +70,27 @@ app.layout = html.Div(
         ]
     )
 
+# Define the callback function to update the output based on the selected station.
 @callback(
     Output(component_id='output-container-button', component_property='children'),
     Input(component_id='station-dropdown', component_property='value')
 )
 
-def callback_function(input_value):
-    # Placeholder for any callback functions if needed in the future
+def callback_function(input_value, station_codes=station_codes):
+    """ Callback function to fetch and display the next train information
+    based on the selected station from the dropdown.
+    Args:
+        input_value (str): The selected station from the dropdown.
+    Returns:
+        html.Div: A Dash HTML component containing the next train information.
+    """
+    # URL for the WMATA Next Train API
+    url = "https://api.wmata.com/StationPrediction.svc/json/GetPrediction/"
+    # Set up headers for the request
+    hdr = {
+            "Cache-Control": "no-cache",
+            "api_key": API_KEY,
+        }
     station = input_value
     if station is None or station == "Select a station":
         return "Please select a station to get the next train information."
@@ -106,11 +134,14 @@ def callback_function(input_value):
                 ])
         except ValueError as e:
             print("Error parsing JSON response:", e)
+            return e
         except KeyError as e:
             print("Key error in response data:", e)
+            return e
         except Exception as e:
             print("An unexpected error occurred:", e)
-        pass
+            return e
+        
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
