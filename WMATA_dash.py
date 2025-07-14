@@ -5,7 +5,21 @@ import warnings
 from dotenv import dotenv_values
 
 API_KEY = dotenv_values(".env")["WMATA_Personal_Primary"]
-# Load the dataset  
+
+
+
+
+def create_output_line(train):
+    return html.Div(children=f"{train['Car']} car train on the {train['Line']} line, " +
+                        f"heading to {train['DestinationName']}, Departing in {train['Min']} minutes. ")
+
+
+def create_output_group(response_json, group):
+    return html.Div(children=[*
+                        [create_output_line(train) for train in response_json["Trains"] 
+                         if train["Group"] == group], html.Br()])
+
+
 station_codes = {
         "Ashburn": "N12",
         "L'Enfant Plaza Upper": "F03",
@@ -32,12 +46,12 @@ app.layout = html.Div(
         html.H1(children='WMATA Next Train Dashboard'),
         html.Div(children=text),
         html.Div(children=[
-        dcc.Dropdown(["Select a station"] + list(station_codes.keys()),
-            placeholder="Select a station", id='station-dropdown',
-            style={'width': '48%', 'float': 'left', 'display': 'grid'}),
-        html.Div(id='output-container-button', 
-            style={'width': '48%', 'float': 'right', 'display': 'grid'}),
-                ]
+            dcc.Dropdown(["Select a station"] + list(station_codes.keys()),
+                placeholder="Select a station", id='station-dropdown',
+                style={'width': '48%', 'float': 'left', 'display': 'grid'}),
+            html.Div(id='output-container-button', 
+                style={'width': '48%', 'float': 'right', 'display': 'grid'}),
+                    ]
             ),
         ]
     )
@@ -82,15 +96,14 @@ def callback_function(input_value):
                 print("No train data available for this station.")
                 return f"No train data available for this station."
             else:
-                train_divs = []
-                for group in list(
-                    {d["Group"] for d in response_json["Trains"] if "Group" in d}
-                    ):
-                        train_divs.append(html.Div(children =
-                            [html.Div(children=f"{train['Car']} car train on the {train['Line']} line, " + \
-                            f"heading to {train['Destination']}, Departing in {train['Min']} minutes. ") 
-                            for train in response_json["Trains"] if train["Group"] == group]))
-                return html.Div(children=train_divs)
+                # Get sorted unique groups
+                groups = sorted({d["Group"] for d in response_json["Trains"] if "Group" in d})
+
+                # List comprehension to create output lines and separate groups with html.Br()
+                # output is a list of html.Div and html.Br elements, ready for Dash
+                return html.Div(children=[create_output_group(response_json, group)
+                    for group in groups
+                ])
         except ValueError as e:
             print("Error parsing JSON response:", e)
         except KeyError as e:
